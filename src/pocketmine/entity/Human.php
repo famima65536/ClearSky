@@ -14,6 +14,7 @@ use pocketmine\nbt\tag\FloatTag;
 use pocketmine\nbt\tag\IntTag;
 use pocketmine\nbt\tag\ListTag;
 use pocketmine\nbt\tag\ShortTag;
+use pocketmine\nbt\tag\LongTag;
 use pocketmine\nbt\tag\StringTag;
 use pocketmine\network\protocol\AddPlayerPacket;
 use pocketmine\network\protocol\RemoveEntityPacket;
@@ -40,7 +41,7 @@ class Human extends Creature implements ProjectileSource, InventoryHolder{
 	public $height = 1.8;
 	public $eyeHeight = 1.62;
 
-	protected $skinName;
+	protected $skinId;
 	protected $skin;
 
 	protected $foodTickTimer = 0;
@@ -52,8 +53,8 @@ class Human extends Creature implements ProjectileSource, InventoryHolder{
 		return $this->skin;
 	}
 
-	public function getSkinName(){
-		return $this->skinName;
+	public function getSkinId(){
+		return $this->skinId;
 	}
 
 	/**
@@ -72,11 +73,11 @@ class Human extends Creature implements ProjectileSource, InventoryHolder{
 
 	/**
 	 * @param string $str
-	 * @param string $skinName
+	 * @param string $skinId
 	 */
-	public function setSkin($str, $skinName){
+	public function setSkin($str, $skinId){
 		$this->skin = $str;
-		$this->skinName = $skinName;
+		$this->skinId = $skinId;
 	}
 
 	public function getFood(){
@@ -216,7 +217,7 @@ class Human extends Creature implements ProjectileSource, InventoryHolder{
 	}
 
 	public function recalculateXpProgress(){
-		$this->setXpProgress($this->getRemainderXp() / self::getTotalXpForLevel($this->getXpLevel()));
+		$this->getXpLevel() > 0 ? $this->setXpProgress($this->getRemainderXp() / self::getTotalXpForLevel($this->getXpLevel())) : $this->setXpProgress(0); 
 	}
 
 	public static function getTotalXpForLevel(int $level){
@@ -381,6 +382,15 @@ class Human extends Creature implements ProjectileSource, InventoryHolder{
 
 	public function saveNBT(){
 		parent::saveNBT();
+		$this->namedtag->foodLevel = new IntTag("foodLevel", $this->getFood());
+		$this->namedtag->foodExhaustionLevel = new FloatTag("foodExhaustionLevel", $this->getExhaustion());
+		$this->namedtag->foodSaturationLevel = new FloatTag("foodSaturationLevel", $this->getSaturation());
+		$this->namedtag->foodTickTimer = new IntTag("foodTickTimer", $this->foodTickTimer);
+		$this->namedtag->XpLevel = new IntTag("XpLevel", $this->getXpLevel());
+		$this->namedtag->XpP = new FloatTag("XpP", $this->getXpProgress());
+		$this->namedtag->XpTotal = new IntTag("XpTotal", $this->totalXp);
+		$this->namedtag->XpSeed = new IntTag("XpSeed", $this->xpSeed ?? ($this->xpSeed = mt_rand(PHP_INT_MIN, PHP_INT_MAX)));
+
 		$this->namedtag->Inventory = new ListTag("Inventory", []);
 		$this->namedtag->Inventory->setTagType(NBT::TAG_Compound);
 		if($this->inventory !== null){
@@ -426,7 +436,7 @@ class Human extends Creature implements ProjectileSource, InventoryHolder{
 		if(strlen($this->getSkinData()) > 0){
 			$this->namedtag->Skin = new CompoundTag("Skin", [
 				"Data" => new StringTag("Data", $this->getSkinData()),
-				"Name" => new StringTag("Name", $this->getSkinName())
+				"Name" => new StringTag("Name", $this->getSkinId())
 			]);
 		}
 	}
@@ -441,7 +451,7 @@ class Human extends Creature implements ProjectileSource, InventoryHolder{
 
 
 			if(!($this instanceof Player)){
-				$this->server->updatePlayerListData($this->getUniqueId(), $this->getId(), $this->getName(), $this->skinName, $this->skin, [$player]);
+				$this->server->updatePlayerListData($this->getUniqueId(), $this->getId(), $this->getName(), $this->skinId, $this->skin, [$player]);
 			}
 
 			$pk = new AddPlayerPacket();

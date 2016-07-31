@@ -48,6 +48,7 @@ use pocketmine\Server;
 use pocketmine\utils\MainLogger;
 use pocketmine\utils\TextFormat;
 use pocketmine\command\defaults\SummonCommand;
+use pocketmine\command\defaults\GameruleCommand;
 
 class SimpleCommandMap implements CommandMap{
 
@@ -103,6 +104,7 @@ class SimpleCommandMap implements CommandMap{
 		$this->register("pocketmine", new ReloadCommand("reload"));
 		$this->register("pocketmine", new SummonCommand("summon"));
 		$this->register("pocketmine", new WeatherCommand("weather"));
+		$this->register("pocketmine", new GameruleCommand("gamerule"));
 		#$this->register("pocketmine", new UpgradeCommand("dist-upgrade"));
 
 		if($this->server->getProperty("debug.commands", false)){
@@ -181,7 +183,7 @@ class SimpleCommandMap implements CommandMap{
 		$target->timings->startTiming();
 		try{
 			$target->execute($sender, $sentCommandLabel, $args);
-		}catch(\Throwable $e){
+		}catch(Throwable $e){
 			$sender->sendMessage(new TranslationContainer(TextFormat::RED . "%commands.generic.exception"));
 			$this->server->getLogger()->critical($this->server->getLanguage()->translateString("pocketmine.command.exception", [$commandLine, (string) $target, $e->getMessage()]));
 			$sender->getServer()->getLogger()->logException($e);

@@ -46,8 +46,8 @@ class RakLibInterface implements ServerInstance, AdvancedSourceInterface{
 
 		$this->server = $server;
 		$this->timeout = $server->getProperty("network.timeout", -1);
-		$this->currentprotocol = $server->getProperty("network.protocol", 40);
-		$this->networkversion = $server->getProperty("network.version", "0.14.0");
+		$this->currentprotocol = $server->getProperty("network.protocol", ProtocolInfo::CURRENT_PROTOCOL);
+		$this->networkversion = $server->getProperty("network.version", ProtocolInfo::CURRENT_VERSION);
 		
 		$this->identifiers = [];
 
@@ -82,10 +82,9 @@ class RakLibInterface implements ServerInstance, AdvancedSourceInterface{
 		}
 
 		if($this->rakLib->isTerminated()){
-			$info = $this->rakLib->getTerminationInfo();
 			$this->network->unregisterInterface($this);
 
-			throw new \Exception("RakLib Thread crashed [".$info["scope"]."]: " . (isset($info["message"]) ? $info["message"] : "") . " File: ". $info["file"] . " Line: " . $info["line"]);
+			throw new \Exception("A RakLib Thread crashed!");
 		}
 
 		return $work;
@@ -140,7 +139,7 @@ class RakLibInterface implements ServerInstance, AdvancedSourceInterface{
 						$this->players[$identifier]->handleDataPacket($pk);
 					}
 				}
-			}catch(\Throwable $e){
+			}catch(Throwable $e){
 				if(\pocketmine\DEBUG > 1 and isset($pk)){
 					$logger = $this->server->getLogger();
 					$logger->debug("Packet " . get_class($pk) . " 0x" . bin2hex($packet->buffer));

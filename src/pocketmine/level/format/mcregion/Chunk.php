@@ -33,7 +33,7 @@ class Chunk extends BaseFullChunk{
 			$this->nbt->Entities->setTagType(NBT::TAG_Compound);
 		}else{
 			$this->nbt->Entities = new ListTag("Entities", []);
-			$this->nbt->Entities->setTagType(NBT::TAG_Compound);
+			// $this->nbt->Entities->setTagType(NBT::TAG_Compound);
 		}
 
 		if(isset($this->nbt->TileEntities) and $this->nbt->TileEntities instanceof ListTag){
@@ -228,11 +228,11 @@ class Chunk extends BaseFullChunk{
 	}
 
 	public function isLightPopulated(){
-		return isset($this->nbt["LightPopulated"]) ? $this->nbt["LightPopulated"] > 0 : false;
+		return $this->nbt["LightPopulated"] > 0;
 	}
 
 	public function setLightPopulated($value = 1){
-		$this->nbt->LightPopulated = new ByteTag("LightPopulated", $value);
+		$this->nbt->LightPopulated = new ByteTag("LightPopulated", $value ? 1 : 0);
 		$this->hasChanged = true;
 	}
 
@@ -289,7 +289,7 @@ class Chunk extends BaseFullChunk{
 			}
 
 			return new Chunk($provider instanceof LevelProvider ? $provider : McRegion::class, $chunk->Level);
-		}catch(\Throwable $e){
+		}catch(Throwable $e){
 			return null;
 		}
 	}
@@ -327,7 +327,7 @@ class Chunk extends BaseFullChunk{
 			$chunk->nbt->LightPopulated = new ByteTag("LightPopulated", ($flags >> 2) & 0b1);
 
 			return $chunk;
-		}catch(\Throwable $e){
+		}catch(Throwable $e){
 			return null;
 		}
 	}
@@ -435,7 +435,7 @@ class Chunk extends BaseFullChunk{
 			$chunk->nbt->LightPopulated = new ByteTag("LightPopulated", 0);
 
 			return $chunk;
-		}catch(\Throwable $e){
+		}catch(Throwable $e){
 			return null;
 		}
 	}

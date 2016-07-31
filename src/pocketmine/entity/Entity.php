@@ -14,6 +14,9 @@ use pocketmine\event\entity\EntityMotionEvent;
 use pocketmine\event\entity\EntityRegainHealthEvent;
 use pocketmine\event\entity\EntitySpawnEvent;
 use pocketmine\event\entity\EntityTeleportEvent;
+use pocketmine\event\entity\EntityDamageByChildEntityEvent;
+use pocketmine\event\entity\EntityDamageByEntityEvent;
+use pocketmine\entity\Painting as PaintingEntity;
 use pocketmine\event\Timings;
 use pocketmine\item\Item as ItemItem;
 use pocketmine\level\format\Chunk;
@@ -44,8 +47,6 @@ use pocketmine\Player;
 use pocketmine\plugin\Plugin;
 use pocketmine\Server;
 use pocketmine\utils\ChunkException;
-use pocketmine\event\entity\EntityDamageByChildEntityEvent;
-use pocketmine\event\entity\EntityDamageByEntityEvent;
 
 abstract class Entity extends Location implements Metadatable{
 
@@ -290,7 +291,6 @@ abstract class Entity extends Location implements Metadatable{
 	}
 	
 	public function __construct(FullChunk $chunk, CompoundTag $nbt){
-
 		assert($chunk !== null and $chunk->getProvider() !== null);
 
 		$this->timings = Timings::getEntityTimings($this);
@@ -635,13 +635,16 @@ abstract class Entity extends Location implements Metadatable{
 		$this->namedtag->Air = new ShortTag("Air", $this->getDataProperty(self::DATA_AIR));
 		$this->namedtag->OnGround = new ByteTag("OnGround", $this->onGround == true ? 1 : 0);
 		$this->namedtag->Invulnerable = new ByteTag("Invulnerable", $this->invulnerable == true ? 1 : 0);
+		
+		$this->namedtag->Health = new ShortTag("Health", $this->getHealth());
+		$this->namedtag->MaxHealth = new ShortTag("MaxHealth", $this->getMaxHealth());
 
 		if(count($this->effects) > 0){
 			$effects = [];
 			foreach($this->effects as $effect){
 				$effects[$effect->getId()] = new CompoundTag($effect->getId(), [
 					"Id" => new ByteTag("Id", $effect->getId()),
-					"Amplifier" => new ByteTag("Amplifier", $effect->getAmplifier()),
+					"Amplifier" => new ByteTag("Amplifier", $effect->getAmplifier() < 0 ? 0 : $effect->getAmplifier()),
 					"Duration" => new IntTag("Duration", $effect->getDuration()),
 					"Ambient" => new ByteTag("Ambient", 0),
 					"ShowParticles" => new ByteTag("ShowParticles", $effect->isVisible() ? 1 : 0)
@@ -1099,6 +1102,9 @@ abstract class Entity extends Location implements Metadatable{
 	}
 
 	public final function scheduleUpdate(){
+		if($this instanceof PaintingEntity){
+			return;
+		}
 		$this->level->updateEntities[$this->id] = $this;
 	}
 
@@ -1498,10 +1504,8 @@ abstract class Entity extends Location implements Metadatable{
 	public function setPositionAndRotation(Vector3 $pos, $yaw, $pitch){
 		if($this->setPosition($pos) === true){
 			$this->setRotation($yaw, $pitch);
-
 			return true;
 		}
-
 		return false;
 	}
 

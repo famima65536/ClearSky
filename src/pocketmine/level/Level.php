@@ -35,6 +35,7 @@ use pocketmine\entity\Item as DroppedItem;
 use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\block\BlockPlaceEvent;
 use pocketmine\event\block\BlockUpdateEvent;
+use pocketmine\event\block\RedstoneBlockUpdateEvent;
 use pocketmine\event\level\ChunkLoadEvent;
 use pocketmine\event\level\ChunkPopulateEvent;
 use pocketmine\event\level\ChunkUnloadEvent;
@@ -61,6 +62,7 @@ use pocketmine\level\generator\GeneratorRegisterTask;
 use pocketmine\level\generator\GeneratorUnregisterTask;
 use pocketmine\level\generator\LightPopulationTask;
 use pocketmine\level\generator\PopulationTask;
+use pocketmine\level\sound\BlockPlaceSound;
 use pocketmine\math\AxisAlignedBB;
 use pocketmine\math\Math;
 use pocketmine\math\Vector2;
@@ -285,6 +287,9 @@ class Level implements ChunkManager, Metadatable{
 	private $raintime = [];
 	private $rainfall = [];
 	private $weatherexectick = 0;
+	
+	/** @var GameRules */
+	public $gamerules;
 
 	/** AI **/
 	private $AI;
@@ -364,6 +369,24 @@ class Level implements ChunkManager, Metadatable{
 	
 	public function getWeather(){
 		return $this->weather;
+	}
+
+	/** @return GameRules */
+	public function getGameRules(){
+		return $this->gamerules;
+	}
+	
+	public function setGameRules($rules){
+		return $this->getProvider()->setGameRules($rules);
+	}
+
+	public function getGameRule($name){
+		return $this->gamerules->hasRule($name) ? $this->gamerules->getRule($name) : null;
+	}
+
+	public function setGameRule($name, $value){
+		$this->gamerules->setOrCreateGameRule($name, $value);
+		return $this->gamerules->hasRule($name);
 	}
 	
 	/**
@@ -463,7 +486,11 @@ class Level implements ChunkManager, Metadatable{
 		if($server->netherName == $this->folderName) $this->setDimension(self::DIMENSION_NETHER);
 		//elseif($server->endName == $this->folderName) $this->setDimension(self::DIMENSION_END);
 		else $this->setDimension(self::DIMENSION_NORMAL);
-		
+
+		$this->gamerules = new GameRules($this->provider->getGameRules());
+
+		$this->getGameRule("doDaylightCycle") ? $this->startTime() : $this->stopTime();
+
 		/** Random ticking */
 		foreach($this->getServer()->getProperty("chunk-ticking.disabled-randomly-ticking-blocks", []) as $id){
 			$ticked = isset($this->randomTickBlocks[$id]);
@@ -840,11 +867,10 @@ class Level implements ChunkManager, Metadatable{
 					$power = $this->updateRedstoneQueueIndex[$hash][0]['power'];
 					unset($this->updateRedstoneQueueIndex[$hash][0]);
 				}
-				if($block->getId() == Block::OBSERVER){ #ToDo:AddAInterfaceForThis
-					$block->onRedstoneUpdate($type,$power,$hash);
-				}else{
-					$block->onRedstoneUpdate($type,$power);
-				}
+				$this->server->getPluginManager()->callEvent($ev = new RedstoneBlockUpdateEvent($block));
+				//if(!$ev->isCancelled()){
+					$this->doRedstoneBlockUpdate($block, $type, $power, $hash); //$ev->getBlock()
+				//}
 				
 				if($Counter >= $this->server->getProperty("redstone.tick-limit", 2048)){
 					break;
@@ -1209,6 +1235,8 @@ class Level implements ChunkManager, Metadatable{
 		}
 
 		$this->server->getPluginManager()->callEvent(new LevelSaveEvent($this));
+		
+		$this->gamerules->save($this);
 
 		$this->provider->setTime((int) $this->time);
 		$this->saveChunks();
@@ -1289,8 +1317,24 @@ class Level implements ChunkManager, Metadatable{
 	}
 	
 	/**
-	 * ClearSky internal use
+	 * @param Block $block
+	 *
+	 * @param
+	 * @param $hash Hash
 	 */
+	public function doRedstoneBlockUpdate($block, $type, $power, $hash = NULL){
+		if($hash == NULL){
+			$hash = Level::blockHash(0,0,0);
+		}
+		$block->onRedstoneUpdate($type,$power);
+		for($side = 0; $side <= 5; $side++){
+			$aroundBlock = $block->getSide($side);
+			if($aroundBlock->getId() == Block::OBSERVER){ #ToDo:AddAInterfaceForThis
+				$aroundBlock->onRedstoneUpdate($type,$power,$hash);
+			}
+		}
+	}
+	
 	private function compareRedstone($old,$new){
 		$oldtype = $old['type'];
 		$oldpower = $old['power'];
@@ -2040,6 +2084,8 @@ class Level implements ChunkManager, Metadatable{
 		if($hand->place($item, $block, $target, $face, $fx, $fy, $fz, $player) === false){
 			return false;
 		}
+		$this->addSound(new BlockPlaceSound($this->getBlock($block))); //Get updated block, $block is still the original block and cannot be used directly
+
 		$item->setCount($item->getCount() - 1);
 		if($item->getCount() <= 0){
 			$item = Item::get(Item::AIR, 0, 0);
@@ -2931,7 +2977,7 @@ class Level implements ChunkManager, Metadatable{
 				}
 			}
 			$this->provider->unloadChunk($x, $z, $safe);
-		}catch(\Throwable $e){
+		}catch(Throwable $e){
 			$logger = $this->server->getLogger();
 			$logger->error($this->server->getLanguage()->translateString("pocketmine.level.chunkUnloadError", [$e->getMessage()]));
 			$logger->logException($e);
@@ -3132,9 +3178,12 @@ class Level implements ChunkManager, Metadatable{
 			return false;
 		}
 
-		$chunk = $this->getChunk($x, $z, true);
-		if(!$chunk->isPopulated()){
+		if(!$this->isChunkPopulated($x, $z)){
 			Timings::$populationTimer->startTiming();
+			$chunk = $this->getChunk($x, $z, true);
+			if($chunk === null){
+				return true;
+			}
 			$populate = true;
 			for($xx = -1; $xx <= 1; ++$xx){
 				for($zz = -1; $zz <= 1; ++$zz){
