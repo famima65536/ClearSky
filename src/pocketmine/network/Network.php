@@ -32,6 +32,7 @@ use pocketmine\network\protocol\ExplodePacket;
 use pocketmine\network\protocol\HurtArmorPacket;
 use pocketmine\network\protocol\Info as ProtocolInfo;
 use pocketmine\network\protocol\InteractPacket;
+use pocketmine\network\protocol\ItemFrameDropItemPacket;
 use pocketmine\network\protocol\LevelEventPacket;
 use pocketmine\network\protocol\DisconnectPacket;
 use pocketmine\network\protocol\LoginPacket;
@@ -125,7 +126,7 @@ class Network{
 		foreach($this->interfaces as $interface){
 			try {
 				$interface->process();
-			}catch(\Throwable $e){
+			}catch(Throwable $e){
 				$logger = $this->server->getLogger();
 				if(\pocketmine\DEBUG > 1){
 					if($logger instanceof MainLogger){
@@ -206,9 +207,12 @@ class Network{
 				$buf = substr($str, $offset, $pkLen);
 				$offset += $pkLen;
 
+				if(strlen($buf) === 0){
+					throw new \InvalidStateException("Empty or invalid BatchPacket from ".$p->getName());
+				}
 				if(($pk = $this->getPacket(ord($buf{0}))) !== null){
 					if($pk::NETWORK_ID === Info::BATCH_PACKET){
-						throw new \InvalidStateException("Invalid BatchPacket inside BatchPacket");
+						throw new \InvalidStateException("Invalid BatchPacket inside BatchPacket from".$p->getName());
 					}
 
 					$pk->setBuffer($buf, 1);
@@ -221,7 +225,7 @@ class Network{
 					}
 				}
 			}
-		}catch(\Throwable $e){
+		}catch(Throwable $e){
 			if(\pocketmine\DEBUG > 1){
 				$logger = $this->server->getLogger();
 				if($logger instanceof MainLogger){
@@ -330,6 +334,6 @@ class Network{
 		// $this->registerPacket(ProtocolInfo::MAP_INFO_REQUEST_PACKET, MapInfoRequestPacket::class);
 		$this->registerPacket(ProtocolInfo::REQUEST_CHUNK_RADIUS_PACKET, RequestChunkRadiusPacket::class);
 		$this->registerPacket(ProtocolInfo::CHUNK_RADIUS_UPDATED_PACKET, ChunkRadiusUpdatedPacket::class);
-		// $this->registerPacket(ProtocolInfo::ITEM_FRAME_DROP_ITEM_PACKET, ItemFrameDropItemPacket::class);
+		$this->registerPacket(ProtocolInfo::ITEM_FRAME_DROP_ITEM_PACKET, ItemFrameDropItemPacket::class);
 	}
 }

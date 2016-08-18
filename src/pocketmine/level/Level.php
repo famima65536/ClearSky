@@ -2899,7 +2899,7 @@ class Level implements ChunkManager, Metadatable{
 				}
 			}
 			$this->provider->unloadChunk($x, $z, $safe);
-		}catch(\Throwable $e){
+		}catch(Throwable $e){
 			$logger = $this->server->getLogger();
 			$logger->error($this->server->getLanguage()->translateString("pocketmine.level.chunkUnloadError", [$e->getMessage()]));
 			$logger->logException($e);
@@ -3100,9 +3100,12 @@ class Level implements ChunkManager, Metadatable{
 			return false;
 		}
 
-		$chunk = $this->getChunk($x, $z, true);
-		if(!$chunk->isPopulated()){
+		if(!$this->isChunkPopulated($x, $z)){
 			Timings::$populationTimer->startTiming();
+			$chunk = $this->getChunk($x, $z, true);
+			if($chunk === null){
+				return true;
+			}
 			$populate = true;
 			for($xx = -1; $xx <= 1; ++$xx){
 				for($zz = -1; $zz <= 1; ++$zz){

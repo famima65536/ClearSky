@@ -2,7 +2,6 @@
 
 namespace pocketmine\item\enchantment;
 
-use pocketmine\item\Armor;
 use pocketmine\item\Item;
 
 class EnchantmentLevelTable{
@@ -218,7 +217,7 @@ class EnchantmentLevelTable{
 			/** @var Range $range */
 			foreach($ranges as $range) {
 	            $i++;
-	            if($this->isInRange($range[0], $range[1], $modifiedLevel)){
+	            if(self::isInRange($range[0], $range[1], $modifiedLevel)){
 		            $result[] = $enchantment->setLevel($i);
 	            }
             }
@@ -227,7 +226,7 @@ class EnchantmentLevelTable{
         return $result;
     }
 	
-	public function isInRange($min, $max, $v){
+	public static function isInRange($min, $max, $v){
 		return $v >= $min && $v <= $max;
 	}
 
